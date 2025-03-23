@@ -84,32 +84,56 @@ if search_clicked and company_name:
         
         # Display sentiment distribution
         st.subheader("Sentiment Analysis Summary")
-        sentiment_dist = news_data["Comparative Sentiment Score"]["Sentiment Distribution"]
         
-        # Create sentiment distribution dataframe for chart
-        sentiment_df = pd.DataFrame({
-            'Sentiment': list(sentiment_dist.keys()),
-            'Count': list(sentiment_dist.values())
-        })
-        
-        # Display as a bar chart
-        st.bar_chart(sentiment_df.set_index('Sentiment'))
-        
+        # Check if Comparative Sentiment Score exists
+        if "Comparative Sentiment Score" in news_data and "Sentiment Distribution" in news_data["Comparative Sentiment Score"]:
+            sentiment_dist = news_data["Comparative Sentiment Score"]["Sentiment Distribution"]
+            
+            # Create sentiment distribution dataframe for chart
+            sentiment_df = pd.DataFrame({
+                'Sentiment': list(sentiment_dist.keys()),
+                'Count': list(sentiment_dist.values())
+            })
+            
+            # Display as a bar chart
+            st.bar_chart(sentiment_df.set_index('Sentiment'))
+        else:
+            # Create a generic sentiment distribution based on available articles
+            sentiments = {"Positive": 0, "Negative": 0, "Neutral": 0}
+            for article in news_data.get("Articles", []):
+                if "Sentiment" in article:
+                    sentiments[article["Sentiment"]] += 1
+            
+            # Display as a bar chart
+            sentiment_df = pd.DataFrame({
+                'Sentiment': list(sentiments.keys()),
+                'Count': list(sentiments.values())
+            })
+            st.bar_chart(sentiment_df.set_index('Sentiment'))
+            
         # Display Final Sentiment
         st.subheader("Overall Sentiment Analysis")
-        st.info(news_data["Final Sentiment Analysis"])
+        if "Final Sentiment Analysis" in news_data:
+            st.info(news_data["Final Sentiment Analysis"])
+        else:
+            st.info("No detailed sentiment analysis available for this search.")
         
         # Generate and display TTS
         st.subheader("Text-to-Speech Summary (Hindi)")
         
         # Extract a summary for TTS
-        tts_summary = f"{company_name} के बारे में समाचार विश्लेषण: {news_data['Final Sentiment Analysis']}"
+        if "Final Sentiment Analysis" in news_data:
+            tts_summary = f"{company_name} के बारे में समाचार विश्लेषण: {news_data['Final Sentiment Analysis']}"
+        else:
+            tts_summary = f"{company_name} के बारे में समाचार विश्लेषण: कंपनी के बारे में मिली-जुली ख़बरें हैं।"
         
         with st.spinner("Generating Hindi audio..."):
             tts_result = generate_tts(tts_summary)
             
         if tts_result and 'audio_base64' in tts_result:
             st.audio(base64.b64decode(tts_result['audio_base64']), format='audio/mp3')
+        else:
+            st.warning("Audio generation failed. Please try again.")
         
         # Articles tab
         st.subheader("News Articles")
@@ -141,35 +165,52 @@ if search_clicked and company_name:
         # Comparative Analysis
         st.subheader("Comparative Analysis")
         
-        # Topic overlap
-        st.markdown("### Topic Coverage")
-        topic_overlap = news_data["Comparative Sentiment Score"]["Topic Overlap"]
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("**Common Topics**")
-            st.write(", ".join(topic_overlap["Common Topics"]) if topic_overlap["Common Topics"] else "None")
-        
-        with col2:
-            st.markdown("**Unique Topics (Positive Articles)**")
-            if "Unique Topics in Positive Articles" in topic_overlap:
-                st.write(", ".join(topic_overlap["Unique Topics in Positive Articles"]))
-            else:
-                st.write("Not available")
+        # Check if Comparative Sentiment Score exists
+        if "Comparative Sentiment Score" in news_data:
+            # Topic overlap
+            st.markdown("### Topic Coverage")
+            if "Topic Overlap" in news_data["Comparative Sentiment Score"]:
+                topic_overlap = news_data["Comparative Sentiment Score"]["Topic Overlap"]
                 
-        with col3:
-            st.markdown("**Unique Topics (Negative Articles)**")
-            if "Unique Topics in Negative Articles" in topic_overlap:
-                st.write(", ".join(topic_overlap["Unique Topics in Negative Articles"]))
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown("**Common Topics**")
+                    if "Common Topics" in topic_overlap:
+                        st.write(", ".join(topic_overlap["Common Topics"]) if topic_overlap["Common Topics"] else "None")
+                    else:
+                        st.write("None")
+                
+                with col2:
+                    st.markdown("**Unique Topics (Positive Articles)**")
+                    if "Unique Topics in Positive Articles" in topic_overlap:
+                        st.write(", ".join(topic_overlap["Unique Topics in Positive Articles"]))
+                    else:
+                        st.write("Not available")
+                        
+                with col3:
+                    st.markdown("**Unique Topics (Negative Articles)**")
+                    if "Unique Topics in Negative Articles" in topic_overlap:
+                        st.write(", ".join(topic_overlap["Unique Topics in Negative Articles"]))
+                    else:
+                        st.write("Not available")
             else:
-                st.write("Not available")
-        
-        # Coverage differences
-        st.markdown("### Coverage Differences")
-        for idx, comparison in enumerate(news_data["Comparative Sentiment Score"]["Coverage Differences"]):
-            with st.expander(f"Comparison {idx+1}"):
-                st.markdown(f"**Comparison:** {comparison['Comparison']}")
-                st.markdown(f"**Impact:** {comparison['Impact']}")
+                st.info("No detailed topic coverage analysis available.")
+            
+            # Coverage differences
+            st.markdown("### Coverage Differences")
+            if "Coverage Differences" in news_data["Comparative Sentiment Score"]:
+                coverage_diffs = news_data["Comparative Sentiment Score"]["Coverage Differences"]
+                if coverage_diffs:
+                    for idx, comparison in enumerate(coverage_diffs):
+                        with st.expander(f"Comparison {idx+1}"):
+                            st.markdown(f"**Comparison:** {comparison.get('Comparison', 'Not available')}")
+                            st.markdown(f"**Impact:** {comparison.get('Impact', 'Not available')}")
+                else:
+                    st.info("No coverage differences analysis available.")
+            else:
+                st.info("No coverage differences analysis available.")
+        else:
+            st.info("Detailed comparative analysis not available for this search.")
         
         # Show raw JSON data in an expander
         with st.expander("Show Raw JSON Data"):
