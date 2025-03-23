@@ -148,7 +148,11 @@ def get_articles_from_news_sites(company_name):
                         if not url.startswith('http'):
                             # Convert relative URL to absolute
                             base_url = '/'.join(site.split('/')[:3])
-                            url = f"{base_url}{url if url.startswith('/') else '/' + url}"
+                            if isinstance(url, str):
+                                url = f"{base_url}{url if url.startswith('/') else '/' + url}"
+                            else:
+                                # If it's not a string, use a default path
+                                url = f"{base_url}/article"
                             
                         article = {
                             'title': title_elem.text.strip(),
@@ -198,7 +202,11 @@ def get_articles_from_alternative_sources(company_name):
                         # Make sure URL is absolute
                         if not url.startswith('http'):
                             base_url = '/'.join(site.split('/')[:3])
-                            url = f"{base_url}{url if url.startswith('/') else '/' + url}"
+                            if isinstance(url, str):
+                                url = f"{base_url}{url if url.startswith('/') else '/' + url}"
+                            else:
+                                # If it's not a string, use a default path
+                                url = f"{base_url}/article"
                         
                         article = {
                             'title': title,
