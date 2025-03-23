@@ -35,3 +35,8 @@ A web application that extracts news articles about companies, performs sentimen
 - gTTS (Google Text-to-Speech)
 - BeautifulSoup (Web Scraping)
 - Trafilatura (Content Extraction)
+
+
+## Demo Video  
+
+🎥 [Click here to watch the video](https://drive.google.com/file/d/1MdjtyC7n_zZ0cfhv-Zk0Qm1CDhUSXz1f/view?usp=sharing)
