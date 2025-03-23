@@ -15,9 +15,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # API key for Google News API
-GOOGLE_API_KEY = utils.get_api_key("API_KEY", "AIzaSyBtsAyxYHzO6I1oCNBlftDrGIuBrjxhJt4")
-# Using a generic search engine ID for news search
-SEARCH_ENGINE_ID = "015786823554162166929:p8iya9s2nhy"
+GOOGLE_API_KEY = utils.get_api_key("GOOGLE_API_KEY")
+# Using the search engine ID from environment variables
+SEARCH_ENGINE_ID = utils.get_api_key("SEARCH_ENGINE_ID")
 
 def get_news_articles(company_name, max_results=15):
     """
@@ -26,27 +26,41 @@ def get_news_articles(company_name, max_results=15):
     """
     logger.info(f"Fetching news for: {company_name}")
     
-    # Since Google API might not be available, start with direct scraping
-    articles = get_articles_from_news_sites(company_name)
+    # Start with Google Custom Search API since we have valid credentials now
+    articles = []
+    try:
+        google_articles = get_articles_from_google_news(company_name)
+        
+        # Add Google articles to our collection
+        for article in google_articles:
+            articles.append(article)
+            if len(articles) >= max_results:
+                break
+    except Exception as e:
+        logger.warning(f"Google News API failed: {str(e)}")
     
-    # Only if direct scraping didn't work, try Google News API as a backup
-    if len(articles) < 3:
-        try:
-            google_articles = get_articles_from_google_news(company_name)
-            
-            # Add new articles while avoiding duplicates
-            for article in google_articles:
-                if article['url'] not in [a['url'] for a in articles]:
-                    articles.append(article)
-                    if len(articles) >= max_results:
-                        break
-        except Exception as e:
-            logger.warning(f"Google News API fallback failed: {str(e)}")
+    # If Google API didn't return enough results, try direct scraping
+    if len(articles) < 5:
+        direct_articles = get_articles_from_news_sites(company_name)
+        
+        # Add new articles while avoiding duplicates
+        for article in direct_articles:
+            if article['url'] not in [a['url'] for a in articles]:
+                articles.append(article)
+                if len(articles) >= max_results:
+                    break
     
-    # If we still don't have enough articles, add some from news.google.com
+    # If we still don't have enough articles, add some from alternative news sources
     if len(articles) < 3:
         logger.info("Not enough articles, trying alternative news sources")
-        articles.extend(get_articles_from_alternative_sources(company_name))
+        alternative_articles = get_articles_from_alternative_sources(company_name)
+        
+        # Add new articles while avoiding duplicates
+        for article in alternative_articles:
+            if article['url'] not in [a['url'] for a in articles]:
+                articles.append(article)
+                if len(articles) >= max_results:
+                    break
     
     # Return only non-JS sites that can be scraped with BeautifulSoup
     scrapable_articles = []
