@@ -138,29 +138,39 @@ if search_clicked and company_name:
         # Articles tab
         st.subheader("News Articles")
         
-        # Create tabs for each article
-        tabs = st.tabs([f"Article {i+1}" for i in range(len(news_data['Articles']))])
-        
-        # Display article details in each tab
-        for i, (tab, article) in enumerate(zip(tabs, news_data['Articles'])):
-            with tab:
-                st.markdown(f"### {article['Title']}")
-                
-                # Create columns for metadata
-                col1, col2 = st.columns(2)
-                with col1:
-                    sentiment_color = {
-                        'Positive': 'green',
-                        'Negative': 'red',
-                        'Neutral': 'blue'
-                    }
-                    st.markdown(f"**Sentiment:** <span style='color:{sentiment_color[article['Sentiment']]}'>{article['Sentiment']}</span>", unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown(f"**Topics:** {', '.join(article['Topics'])}")
-                
-                st.markdown("**Summary:**")
-                st.markdown(f"{article['Summary']}")
+        # Check if there are any articles
+        if news_data.get('Articles') and len(news_data['Articles']) > 0:
+            # Create tabs for each article
+            tabs = st.tabs([f"Article {i+1}" for i in range(len(news_data['Articles']))])
+            
+            # Display article details in each tab
+            for i, (tab, article) in enumerate(zip(tabs, news_data['Articles'])):
+                with tab:
+                    st.markdown(f"### {article['Title']}")
+                    
+                    # Create columns for metadata
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        sentiment_color = {
+                            'Positive': 'green',
+                            'Negative': 'red',
+                            'Neutral': 'blue'
+                        }
+                        sentiment = article.get('Sentiment', 'Neutral')
+                        st.markdown(f"**Sentiment:** <span style='color:{sentiment_color.get(sentiment, 'blue')}'>{sentiment}</span>", unsafe_allow_html=True)
+                    
+                    with col2:
+                        topics = article.get('Topics', [])
+                        if topics:
+                            st.markdown(f"**Topics:** {', '.join(topics)}")
+                        else:
+                            st.markdown("**Topics:** None")
+                    
+                    st.markdown("**Summary:**")
+                    summary = article.get('Summary', 'No summary available.')
+                    st.markdown(f"{summary}")
+        else:
+            st.warning("No articles were found for this company. Try another company name or check if the Google API key is valid.")
                 
         # Comparative Analysis
         st.subheader("Comparative Analysis")

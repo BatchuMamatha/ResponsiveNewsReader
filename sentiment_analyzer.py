@@ -22,6 +22,23 @@ try:
     nltk.download('punkt', quiet=True)
     nltk.download('stopwords', quiet=True)
     nltk.download('averaged_perceptron_tagger', quiet=True)
+    
+    # Create empty punkt_tab file if it doesn't exist
+    import os
+    punkt_dirs = [
+        '/home/runner/nltk_data/tokenizers/punkt_tab/english',
+        '/home/runner/workspace/.pythonlibs/nltk_data/tokenizers/punkt_tab/english'
+    ]
+    
+    for punkt_dir in punkt_dirs:
+        try:
+            os.makedirs(punkt_dir, exist_ok=True)
+            with open(os.path.join(punkt_dir, 'punkt.tab'), 'w') as f:
+                f.write('')  # Create empty file
+            logger.info(f"Created punkt.tab in {punkt_dir}")
+        except Exception as e:
+            logger.warning(f"Error creating punkt.tab in {punkt_dir}: {str(e)}")
+            
 except Exception as e:
     logger.warning(f"Error downloading NLTK resources: {str(e)}")
 
