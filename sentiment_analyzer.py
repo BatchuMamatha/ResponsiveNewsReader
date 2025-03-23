@@ -35,7 +35,7 @@ try:
             os.makedirs(punkt_dir, exist_ok=True)
             
             # Create the required tab files
-            required_files = ['punkt.tab', 'collocations.tab', 'sent_starters.txt']
+            required_files = ['punkt.tab', 'collocations.tab', 'sent_starters.txt', 'abbrev_types.txt']
             for file_name in required_files:
                 with open(os.path.join(punkt_dir, file_name), 'w') as f:
                     f.write('')  # Create empty file

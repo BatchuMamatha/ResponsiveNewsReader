@@ -137,47 +137,139 @@ def get_articles_from_news_sites(company_name):
         f"https://news.google.com/search?q={company_name}",
         f"https://www.reuters.com/search/news?blob={company_name}",
         f"https://economictimes.indiatimes.com/searchresult.cms?query={company_name}",
-        f"https://www.business-standard.com/search?q={company_name}"
+        f"https://www.business-standard.com/search?q={company_name}",
+        f"https://www.cnbc.com/search/?query={company_name}&qsearchterm={company_name}",
+        f"https://search.cnbc.com/rs/search/combinedcms/article?partnerId=wrss01&id={company_name}"
     ]
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0'
+    }
     
     for site in news_sites:
         try:
-            response = requests.get(site, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            })
+            logger.info(f"Trying to scrape news from: {site}")
+            response = requests.get(site, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
-                # Extract articles (basic scraping, each site needs custom rules)
-                # This is a simplified example
-                article_elements = soup.select('article') or soup.select('.article') or soup.select('.story')
+                # Extract articles (using different selectors for different sites)
+                article_elements = []
                 
-                for element in article_elements[:5]:  # Limit to 5 from each source
-                    title_elem = element.select_one('h3') or element.select_one('h2') or element.select_one('.title')
-                    link_elem = element.select_one('a')
+                # Google News specific
+                if 'news.google.com' in site:
+                    article_elements = soup.select('article') or soup.select('.IBr9hb')
+                
+                # Reuters specific
+                elif 'reuters.com' in site:
+                    article_elements = soup.select('.search-result-content')
+                
+                # Economic Times specific
+                elif 'economictimes.indiatimes.com' in site:
+                    article_elements = soup.select('.article')
+                
+                # Business Standard specific
+                elif 'business-standard.com' in site:
+                    article_elements = soup.select('.article')
+                
+                # CNBC specific
+                elif 'cnbc.com' in site:
+                    article_elements = soup.select('.Card-standardBreakerCard') or soup.select('.Card-card')
+                
+                # Generic selectors as fallback
+                if not article_elements:
+                    article_elements = soup.select('article') or soup.select('.article') or soup.select('.story') or soup.select('.news-item')
+                
+                # If we still don't have elements, try to find a tags with headlines
+                if not article_elements:
+                    # Find all links that might be news articles
+                    links = soup.find_all('a')
+                    for link in links:
+                        if link.text and len(link.text.strip()) > 15 and company_name.lower() in link.text.lower():
+                            article_elements.append(link)
+                
+                logger.info(f"Found {len(article_elements)} potential articles on {site}")
+                processed_for_site = 0
+                
+                for element in article_elements:
+                    if processed_for_site >= 5:  # Limit to 5 from each source
+                        break
+                        
+                    # Try different ways to get title
+                    title_elem = None
+                    title_text = None
                     
-                    if title_elem and link_elem and link_elem.get('href'):
+                    # First check if the element itself is a link with good text
+                    if element.name == 'a' and element.text and len(element.text.strip()) > 15:
+                        title_elem = element
+                        title_text = element.text.strip()
+                    else:
+                        # Try various selectors for title
+                        selectors = ['h3', 'h2', 'h4', '.title', '.headline', '.titleText']
+                        for selector in selectors:
+                            title_elem = element.select_one(selector)
+                            if title_elem:
+                                title_text = title_elem.text.strip()
+                                break
+                        
+                        # If still no title, use the text of the whole element if it's not too long
+                        if not title_text and element.text and len(element.text.strip()) < 200:
+                            title_text = element.text.strip()
+                    
+                    # Find link - either the title element itself is a link or find first link in the element
+                    link_elem = None
+                    url = None
+                    
+                    if title_elem and title_elem.name == 'a' and title_elem.get('href'):
+                        link_elem = title_elem
                         url = link_elem['href']
-                        if not url.startswith('http'):
-                            # Convert relative URL to absolute
+                    else:
+                        # Try to find a link in the element
+                        link_elem = element.select_one('a')
+                        if link_elem and link_elem.get('href'):
+                            url = link_elem['href']
+                    
+                    # If we have both title and URL, create an article entry
+                    if title_text and url:
+                        # Clean up the title (remove extra whitespace, newlines, etc.)
+                        title_text = re.sub(r'\s+', ' ', title_text).strip()
+                        
+                        # Convert relative URL to absolute if needed
+                        if isinstance(url, str) and not url.startswith('http'):
                             base_url = '/'.join(site.split('/')[:3])
-                            if isinstance(url, str):
-                                url = f"{base_url}{url if url.startswith('/') else '/' + url}"
-                            else:
-                                # If it's not a string, use a default path
-                                url = f"{base_url}/article"
+                            url = f"{base_url}{url if url.startswith('/') else '/' + url}"
                             
+                        # Extract snippet if available
+                        snippet = ""
+                        snippet_elem = element.select_one('.snippet') or element.select_one('.summary') or element.select_one('.description')
+                        if snippet_elem:
+                            snippet = snippet_elem.text.strip()
+                        
+                        # Create the article entry
                         article = {
-                            'title': title_elem.text.strip(),
+                            'title': title_text,
                             'url': url,
                             'source': site.split('/')[2],
-                            'snippet': ''
+                            'snippet': snippet or f"News article about {company_name} from {site.split('/')[2]}"
                         }
-                        articles.append(article)
+                        
+                        # Avoid duplicates
+                        if not any(a['url'] == url for a in articles):
+                            articles.append(article)
+                            processed_for_site += 1
+                            logger.info(f"Added article: {title_text[:30]}...")
+        
         except Exception as e:
             logger.error(f"Error scraping {site}: {str(e)}")
     
+    logger.info(f"Total articles scraped from news sites: {len(articles)}")
     return articles
 
 def get_articles_from_alternative_sources(company_name):
@@ -191,52 +283,148 @@ def get_articles_from_alternative_sources(company_name):
         f"https://finance.yahoo.com/quote/{company_name}",
         f"https://www.marketwatch.com/search?q={company_name}",
         f"https://www.businesswire.com/portal/site/home/search/?searchType=all&searchTerm={company_name}",
-        f"https://www.wsj.com/search?query={company_name}"
+        f"https://seekingalpha.com/search?q={company_name}",
+        f"https://www.fool.com/search/?q={company_name}",
+        f"https://www.investors.com/search/?q={company_name}"
     ]
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0'
     }
     
     for site in alternative_sites:
         try:
+            logger.info(f"Trying to scrape from alternative source: {site}")
             response = requests.get(site, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
-                # Extract links and titles
-                links = soup.find_all('a', href=True)
+                # Extract articles based on the source
+                article_elements = []
                 
-                for link in links[:10]:  # Limit to first 10 links
-                    url = link.get('href', '')
-                    title = link.get_text().strip()
+                # Yahoo Finance specific
+                if 'finance.yahoo.com' in site:
+                    article_elements = soup.select('.js-stream-content')
+                
+                # Marketwatch specific
+                elif 'marketwatch.com' in site:
+                    article_elements = soup.select('.element--article')
+                
+                # BusinessWire specific
+                elif 'businesswire.com' in site:
+                    article_elements = soup.select('.bw-news-card')
+                
+                # Seeking Alpha specific
+                elif 'seekingalpha.com' in site:
+                    article_elements = soup.select('.media-with-separator')
+                
+                # Motley Fool specific
+                elif 'fool.com' in site:
+                    article_elements = soup.select('.article-content')
+                
+                # Investors.com specific
+                elif 'investors.com' in site:
+                    article_elements = soup.select('.search-results-item')
+                
+                # Generic fallback
+                if not article_elements:
+                    # Try some common article containers
+                    article_elements = (soup.select('.article') or 
+                                       soup.select('.news-item') or 
+                                       soup.select('.search-result'))
+                
+                # If we still don't have elements, look for links with company name
+                if not article_elements:
+                    links = soup.find_all('a', href=True)
+                    for link in links:
+                        if link.text and len(link.text.strip()) > 15 and company_name.lower() in link.text.lower():
+                            article_elements.append(link)
+                
+                logger.info(f"Found {len(article_elements)} potential articles on alternative source {site}")
+                processed_for_site = 0
+                
+                for element in article_elements:
+                    if processed_for_site >= 3:  # Max 3 from each source
+                        break
                     
-                    if title and len(title) > 15 and company_name.lower() in title.lower():
-                        # Make sure URL is absolute
-                        if not url.startswith('http'):
+                    # Extract title
+                    title_text = None
+                    title_elem = None
+                    
+                    # Check if element itself is a link with good text
+                    if element.name == 'a' and element.text and len(element.text.strip()) > 15:
+                        title_elem = element
+                        title_text = element.text.strip()
+                    else:
+                        # Try common title selectors
+                        title_selectors = ['h1', 'h2', 'h3', 'h4', '.title', '.headline', '.article-title']
+                        for selector in title_selectors:
+                            title_elem = element.select_one(selector)
+                            if title_elem:
+                                title_text = title_elem.text.strip()
+                                break
+                    
+                    # If no title found, try to use the whole text if not too long
+                    if not title_text and element.text and len(element.text.strip()) < 200:
+                        title_text = element.text.strip()
+                    
+                    # Clean the title
+                    if title_text:
+                        title_text = re.sub(r'\s+', ' ', title_text).strip()
+                    
+                    # Extract URL
+                    url = None
+                    
+                    # Check if title element is a link
+                    if title_elem and title_elem.name == 'a' and title_elem.get('href'):
+                        url = title_elem['href']
+                    else:
+                        # Find first link in element
+                        link_elem = element.select_one('a')
+                        if link_elem and link_elem.get('href'):
+                            url = link_elem['href']
+                    
+                    # If we have title and URL, create article entry
+                    if title_text and url:
+                        # Make absolute URL if needed
+                        if isinstance(url, str) and not url.startswith('http'):
                             base_url = '/'.join(site.split('/')[:3])
-                            if isinstance(url, str):
-                                url = f"{base_url}{url if url.startswith('/') else '/' + url}"
-                            else:
-                                # If it's not a string, use a default path
-                                url = f"{base_url}/article"
+                            url = f"{base_url}{url if url.startswith('/') else '/' + url}"
                         
+                        # Extract snippet if available
+                        snippet = ""
+                        snippet_selectors = ['.description', '.summary', '.snippet', '.abstract', '.teaser']
+                        for selector in snippet_selectors:
+                            snippet_elem = element.select_one(selector)
+                            if snippet_elem:
+                                snippet = snippet_elem.text.strip()
+                                break
+                        
+                        # Create article entry
                         article = {
-                            'title': title,
+                            'title': title_text,
                             'url': url,
                             'source': site.split('/')[2],
-                            'snippet': f"Article about {company_name} from {site.split('/')[2]}"
+                            'snippet': snippet or f"Article about {company_name} from {site.split('/')[2]}"
                         }
-                        articles.append(article)
                         
-                        # Stop once we have 3 articles from each source
-                        if len([a for a in articles if a['source'] == site.split('/')[2]]) >= 3:
-                            break
+                        # Avoid duplicates
+                        if not any(a['url'] == url for a in articles):
+                            articles.append(article)
+                            processed_for_site += 1
+                            logger.info(f"Added article from {site.split('/')[2]}: {title_text[:30]}...")
                             
         except Exception as e:
             logger.error(f"Error scraping alternative source {site}: {str(e)}")
     
+    logger.info(f"Total articles scraped from alternative sources: {len(articles)}")
     return articles
 
 def create_sample_articles_for_company(company_name):
