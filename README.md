@@ -36,5 +36,6 @@ A web application that extracts news articles about companies, performs sentimen
 - BeautifulSoup (Web Scraping)
 - Trafilatura (Content Extraction)
 
-##Project Demo
+## Project Demo
+
 ![Image](https://github.com/user-attachments/assets/c67bfa4e-894c-43c9-8ff3-37e25f57f506)
