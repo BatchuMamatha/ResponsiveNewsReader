@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 # API key for Google News API
 GOOGLE_API_KEY = utils.get_api_key("API_KEY", "AIzaSyBtsAyxYHzO6I1oCNBlftDrGIuBrjxhJt4")
-SEARCH_ENGINE_ID = "YOUR_SEARCH_ENGINE_ID"  # Replace with your custom search engine ID (fallback)
+# Using a generic search engine ID for news search
+SEARCH_ENGINE_ID = "015786823554162166929:p8iya9s2nhy"
 
 def get_news_articles(company_name, max_results=15):
     """

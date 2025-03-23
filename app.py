@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # API endpoint (FastAPI backend)
-API_ENDPOINT = "http://localhost:8000"
+API_ENDPOINT = "http://0.0.0.0:8000"
 
 def get_company_news(company_name):
     """Get news articles for a company using the backend API"""
