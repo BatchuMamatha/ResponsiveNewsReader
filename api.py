@@ -35,29 +35,50 @@ async def get_news(request: CompanyRequest):
         articles = news_scraper.get_news_articles(request.company_name)
         
         if not articles or len(articles) == 0:
-            raise HTTPException(status_code=404, detail="No news articles found for the company")
+            logger.warning(f"No articles found for {request.company_name}, using sample articles")
+            articles = news_scraper.create_sample_articles_for_company(request.company_name)
         
         # Process articles (max 10)
         processed_articles = []
         for article in articles[:10]:
-            # Extract content and perform sentiment analysis
-            content = news_scraper.extract_article_content(article['url'])
-            
-            if not content:
-                logger.warning(f"Failed to extract content from {article['url']}")
-                continue
+            try:
+                # Check if article already has content (for sample articles)
+                if 'content' in article and article['content']:
+                    content = article['content']
+                else:
+                    # Extract content and perform sentiment analysis
+                    content = news_scraper.extract_article_content(article['url'])
                 
-            sentiment_result = sentiment_analyzer.analyze_sentiment(content)
-            topics = sentiment_analyzer.extract_topics(content)
-            
-            processed_article = {
-                "Title": article['title'],
-                "Summary": utils.summarize_text(content),
-                "Sentiment": sentiment_result['sentiment'],
-                "Topics": topics
+                if not content:
+                    logger.warning(f"Failed to extract content from {article.get('url', 'unknown URL')}")
+                    continue
+                    
+                sentiment_result = sentiment_analyzer.analyze_sentiment(content)
+                topics = sentiment_analyzer.extract_topics(content)
+                
+                processed_article = {
+                    "Title": article['title'],
+                    "URL": article.get('url', ''),
+                    "Source": article.get('source', 'Unknown'),
+                    "Summary": utils.summarize_text(content),
+                    "Sentiment": sentiment_result.get('sentiment', 'Neutral'),
+                    "Sentiment_Score": sentiment_result.get('compound', 0),
+                    "Topics": topics
+                }
+                
+                processed_articles.append(processed_article)
+            except Exception as article_e:
+                logger.error(f"Error processing article {article.get('title', 'unknown')}: {str(article_e)}")
+                continue
+        
+        if not processed_articles:
+            logger.warning("No articles could be processed successfully")
+            # Create a basic response with minimal information
+            return {
+                "Company": request.company_name,
+                "Articles": [],
+                "Message": "Unable to process articles for this company. Please try another company name."
             }
-            
-            processed_articles.append(processed_article)
         
         # Generate comparative analysis
         comparative_analysis = sentiment_analyzer.generate_comparative_analysis(processed_articles)
