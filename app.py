@@ -148,6 +148,10 @@ if search_clicked and company_name:
                 with tab:
                     st.markdown(f"### {article['Title']}")
                     
+                    # Display the source/website name
+                    source = article.get('Source', 'Unknown Source')
+                    st.markdown(f"**Source:** {source}")
+                    
                     # Create columns for metadata
                     col1, col2 = st.columns(2)
                     with col1:
@@ -166,9 +170,26 @@ if search_clicked and company_name:
                         else:
                             st.markdown("**Topics:** None")
                     
+                    # Display the article summary
                     st.markdown("**Summary:**")
                     summary = article.get('Summary', 'No summary available.')
                     st.markdown(f"{summary}")
+                    
+                    # Add a button to generate audio for this specific article
+                    if st.button(f"Generate Audio for this Article", key=f"btn_audio_{i}"):
+                        # Generate TTS for this article
+                        article_text = f"{article['Title']}. {summary}"
+                        with st.spinner("Generating Hindi audio for this article..."):
+                            article_tts = generate_tts(article_text)
+                            
+                        if article_tts and 'audio_base64' in article_tts:
+                            st.audio(base64.b64decode(article_tts['audio_base64']), format='audio/mp3')
+                        else:
+                            st.warning("Failed to generate audio for this article. Please try again.")
+                    
+                    # Display URL if available
+                    if article.get('url'):
+                        st.markdown(f"[Read full article]({article['url']})")
         else:
             st.warning("No articles were found for this company. Try another company name or check if the Google API key is valid.")
                 
