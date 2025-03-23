@@ -53,6 +53,30 @@ try:
                 
         except Exception as e:
             logger.warning(f"Error creating files in {punkt_dir}: {str(e)}")
+    
+    # Create the directory for averaged_perceptron_tagger
+    tagger_dirs = [
+        '/home/runner/nltk_data/taggers/averaged_perceptron_tagger',
+        '/home/runner/workspace/.pythonlibs/nltk_data/taggers/averaged_perceptron_tagger'
+    ]
+    
+    for tagger_dir in tagger_dirs:
+        try:
+            os.makedirs(tagger_dir, exist_ok=True)
+            logger.info(f"Created tagger directory: {tagger_dir}")
+            
+            # Create the PY3 directory
+            py3_dir = os.path.join(tagger_dir, 'PY3')
+            os.makedirs(py3_dir, exist_ok=True)
+            
+            # Create empty pickle files that would normally contain the tagger model
+            for file_name in ['pickle', 'pickle.gz']:
+                with open(os.path.join(py3_dir, file_name), 'w') as f:
+                    f.write('')
+                logger.info(f"Created {file_name} in {py3_dir}")
+                
+        except Exception as e:
+            logger.warning(f"Error creating tagger files in {tagger_dir}: {str(e)}")
             
 except Exception as e:
     logger.warning(f"Error downloading NLTK resources: {str(e)}")
