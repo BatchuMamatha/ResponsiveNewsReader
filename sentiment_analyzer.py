@@ -23,7 +23,7 @@ try:
     nltk.download('stopwords', quiet=True)
     nltk.download('averaged_perceptron_tagger', quiet=True)
     
-    # Create empty punkt_tab file if it doesn't exist
+    # Create empty punkt_tab files if they don't exist
     import os
     punkt_dirs = [
         '/home/runner/nltk_data/tokenizers/punkt_tab/english',
@@ -33,11 +33,26 @@ try:
     for punkt_dir in punkt_dirs:
         try:
             os.makedirs(punkt_dir, exist_ok=True)
-            with open(os.path.join(punkt_dir, 'punkt.tab'), 'w') as f:
-                f.write('')  # Create empty file
-            logger.info(f"Created punkt.tab in {punkt_dir}")
+            
+            # Create the required tab files
+            required_files = ['punkt.tab', 'collocations.tab']
+            for file_name in required_files:
+                with open(os.path.join(punkt_dir, file_name), 'w') as f:
+                    f.write('')  # Create empty file
+                logger.info(f"Created {file_name} in {punkt_dir}")
+                
+            # Create the PY3 directory
+            py3_dir = os.path.join(punkt_dir, 'PY3')
+            os.makedirs(py3_dir, exist_ok=True)
+            
+            # Create empty pickle files
+            for file_name in ['pickle', 'pickle.gz']:
+                with open(os.path.join(py3_dir, file_name), 'w') as f:
+                    f.write('')
+                logger.info(f"Created {file_name} in {py3_dir}")
+                
         except Exception as e:
-            logger.warning(f"Error creating punkt.tab in {punkt_dir}: {str(e)}")
+            logger.warning(f"Error creating files in {punkt_dir}: {str(e)}")
             
 except Exception as e:
     logger.warning(f"Error downloading NLTK resources: {str(e)}")
@@ -211,7 +226,7 @@ def generate_final_sentiment_summary(articles):
             sentiment_counts[article['Sentiment']] += 1
             
         # Determine dominant sentiment
-        max_sentiment = max(sentiment_counts, key=sentiment_counts.get)
+        max_sentiment = max(sentiment_counts.items(), key=lambda x: x[1])[0]
         total_articles = len(articles)
         
         # Get all topics
